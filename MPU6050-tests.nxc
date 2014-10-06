@@ -1,0 +1,74 @@
+#include "MPU6050-lib.h"
+
+void getAccelValue()
+{
+     printd(LCD_LINE1, "getAccelValue");
+     int AcX, AcY, AcZ;
+     
+     getAcceleration(AcX, AcY, AcZ);
+
+     NumOut(0, LCD_LINE2, AcX);
+     NumOut(0, LCD_LINE3, AcY);
+     NumOut(0, LCD_LINE4, AcZ);
+     Wait(1000);
+}
+
+void getGyroValue()
+{
+     printd(LCD_LINE1, "getGyroValue");
+     int GyX, GyY, GyZ;
+
+     getRotation(GyX, GyY, GyZ);
+
+     NumOut(0, LCD_LINE4, GyX);
+     NumOut(0, LCD_LINE5, GyY);
+     NumOut(0, LCD_LINE6, GyZ);
+     Wait(1000);
+}
+
+task main()
+{
+    mpu_initialize(S1);
+    
+    ClearScreen();
+    if(testConnection() == true)
+    {
+        printd(LCD_LINE1, "Connection OK")
+    }
+    else
+    {
+        printd(LCD_LINE1, "Connection error");
+        StopAllTasks();
+    }
+    
+    //Rate test
+    ClearScreen();
+    setRate(0);
+    Wait(200);
+    byte rate = getRate();
+    NumOut(0, LCD_LINE2, rate);
+    printd(LCD_LINE1, "Rate test == 0");
+    
+    //DLPF test
+    setDLPFMode(MPU6050_DLPF_BW_188);
+    Wait(200);
+    byte dlpfMode = getDLPFMode();
+    NumOut(0, LCD_LINE2, dlpfMode);
+    printd(LCD_LINE1, "DLPF mode == 1");
+    
+    
+    //Test gyro range
+    setFullScaleGyroRange(MPU6050_GYRO_FS_500);
+    Wait(200);
+    byte gyroRange = getFullScaleGyroRange();
+    NumOut(0, LCD_LINE2, gyroRange);
+    printd(LCD_LINE1, "gyroRange == 1");
+    
+    //Accel test
+    ClearScreen();
+    getAccelValue();
+
+    //Gyro test
+    ClearScreen();
+    getGyroValue();
+}

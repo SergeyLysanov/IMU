@@ -1,0 +1,36 @@
+#include "MPU6050-lib.h"
+
+void getAccelValue()
+{
+     int AcX, AcY, AcZ;
+     
+     getAcceleration(AcX, AcY, AcZ);
+
+     NumOut(0, LCD_LINE1, AcX);
+     NumOut(0, LCD_LINE2, AcY);
+     NumOut(0, LCD_LINE3, AcZ);
+}
+
+void getGyroValue()
+{
+     int GyX, GyY, GyZ;
+
+     getRotation(GyX, GyY, GyZ);
+
+     NumOut(0, LCD_LINE4, GyX);
+     NumOut(0, LCD_LINE5, GyY);
+     NumOut(0, LCD_LINE6, GyZ);
+}
+
+task main()
+{
+    mpu_initialize(S1);
+
+    while(true)
+    {
+               ClearScreen();
+               getAccelValue();
+               getGyroValue();
+               Wait(200);
+    }
+}
