@@ -1,0 +1,55 @@
+#include "MPU6050-lib.h"
+
+int AcX, AcY, AcZ, GyX, GyY, GyZ;
+
+float pitch = 0;
+unsigned long counter = 0;
+unsigned long start_tick = 0;
+unsigned long stop_tick = 0;
+
+int GyY_offset = -55;
+int GyY_prev = 0;
+long AcZ_total = 0;
+int AcZ_offset = 890;
+
+void getGyroValue()
+{
+     int GyX, GyY, GyZ;
+
+
+     getMotion(AcX, AcY, AcZ, GyX, GyY, GyZ);
+     GyY += GyY_offset;
+     AcZ += AcZ_offset;
+     
+     AcZ_total += AcZ;
+     pitch += 90*(GyY + GyY_prev) / 1754037.0;
+     GyY_prev = GyY;
+     ++counter;
+}
+
+task main()
+{
+    mpu_initialize(S1);
+
+    ClearScreen();
+    if(testConnection() == true)
+    {
+        printd(LCD_LINE1, "Connection error");
+        StopAllTasks();
+    }
+
+    while(true)
+    {
+        while(!ButtonPressed(BTNCENTER))
+        {
+            getGyroValue();
+        }
+
+
+        ClearScreen();
+        NumOut(0, LCD_LINE1, pitch);
+        NumOut(0, LCD_LINE2, AcZ_total);
+        NumOut(0, LCD_LINE3, counter);
+        Wait(10);
+    }
+}

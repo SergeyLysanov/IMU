@@ -1,9 +1,23 @@
 #include "MPU6050-lib.h"
 
+int AcX, AcY, AcZ, GyX, GyY, GyZ;
+
+long GyY_prev = 0;
+float pitch = 0;
+float pitch_prev = 0;
+float pitch_accel = 0;
+
+
+int GyY_offset = -55;
+
+//for ACCEL_FS_2
+int AcX_offset = 0;
+int AcZ_offset = 800; //890
+
+unsigned long counter = 111;
+
 void getAccelValue()
 {
-     int AcX, AcY, AcZ;
-     
      getAcceleration(AcX, AcY, AcZ);
 
      NumOut(0, LCD_LINE1, AcX);
@@ -13,8 +27,6 @@ void getAccelValue()
 
 void getGyroValue()
 {
-     int GyX, GyY, GyZ;
-
      getRotation(GyX, GyY, GyZ);
 
      NumOut(0, LCD_LINE4, GyX);
@@ -22,15 +34,96 @@ void getGyroValue()
      NumOut(0, LCD_LINE6, GyZ);
 }
 
+void getMotionValue()
+{
+     getMotion(AcX, AcY, AcZ, GyX, GyY, GyZ);
+     GyY +=  GyY_offset;
+     AcX += AcX_offset;
+     AcZ += AcZ_offset;
+     /*NumOut(0, LCD_LINE1, AcX);
+     NumOut(0, LCD_LINE2, AcY);
+     NumOut(0, LCD_LINE3, AcZ);
+     
+     NumOut(0, LCD_LINE4, GyX);
+     NumOut(0, LCD_LINE5, GyY);
+     NumOut(0, LCD_LINE6, GyZ);*/
+}
+
+void complimentary()
+{
+     pitch += 90*(GyY + GyY_prev)/1754037.0; //180 /(GyY + GyY_prev)/2 * 6000000.0
+     GyY_prev = GyY;
+     
+     //y angle
+     pitch_accel = atan2d(AcZ, AcX);
+     pitch_prev = pitch;
+     pitch = 0.98*pitch + 0.02*pitch_accel;
+}
+
+int last_angle_error=0;
+
+long tacho = 0;
+float last_tacho_error=0;
+
+//float gn_dth_dt,gn_th,gn_y,gn_dy_dt,kp,ki,kd,mean_reading,gear_down_ratio,dt;
+float dt = 0.013; //0.013 ms
+
+float gn_GyY = 0.1;   //0.23 plus
+float gn_angle = -25.0;//-25.00;  minus
+float gn_tacho = 0;//24.6;
+
+float kp = 0.0436;//0.0336;
+float ki = 0.0;//1.2;//1.7088;//0.2688;
+float kd = 0.0;//0.000504;
+
+float e_priv = 0;
+float iE = 0;
+
+float PID()
+{
+    float error_angle = 0 - pitch;
+
+    //tacho = MotorTachoCount(OUT_B);
+    float tacho_error = 0 - tacho;
+    
+    float e = gn_angle*error_angle + gn_GyY*GyY;// + gn_tacho*tacho_error;
+    float dE = (e - e_priv) / dt;
+    e_priv = e;
+    iE = iE + e * dt;
+    
+    float pid = (kp*e + ki*iE + kd*dE);
+    //if(pid < 10 && pid > 0) pid = 10;
+    //if(pid < -10 && pid < 0) pid = -10;
+    if(pid > 100) pid = 100;
+    if (pid < -100) pid = -100;
+
+    return pid;
+}
+
+
 task main()
 {
-    mpu_initialize(S1);
 
+    mpu_initialize(S1);
+    //SetMotorRegulationTime(5);
+    //StartTask(balancing);
     while(true)
     {
-               ClearScreen();
-               getAccelValue();
-               getGyroValue();
-               Wait(200);
+        getMotionValue();
+        complimentary();
+        
+        int pid = PID();
+        OnFwdReg(OUT_AB, pid, OUT_REGMODE_SPEED);
+        ++counter;
+        
+        //log
+        /*if(counter % 50 == 0)
+        {
+            ClearScreen();
+            NumOut(0, LCD_LINE1, pitch);
+            NumOut(0, LCD_LINE2, pid);
+            //NumOut(0, LCD_LINE5, pitch);
+            //NumOut(0, LCD_LINE6, AcZ);
+        } */
     }
 }
