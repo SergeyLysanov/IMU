@@ -1,8 +1,14 @@
 #include "RobotC_MPU.c"
+#include "Kalman.h"
 
 int steering = 0;
 int acceleration = 2500;
 int speed = 0;
+
+int delta = 1000;
+long g_module = 70600;
+
+Kalman kalman_GyY;
 
 //Bluetooth varible
 const int kPacketSize = 14;  // Number of bytes in command
@@ -33,10 +39,10 @@ void balancing()
   // Customize PID constants. These variables are global, so you can optionally dynamically change them in your main task.
   gn_dth_dt = 0.23;	//0.20 - low power; //0.28 - high power
   gn_th = 15.00; //25
-  gn_y = 112.8;
+  gn_y = 102.8;
   gn_dy_dt = 34.6; //24.6
-  kp = 0.09996; 		//0.1346 - low power; //0.09146; - high power
-  ki = 0.8188;			//0.6688 - low power; //0.2188 - high power
+  kp = 0.10946; 		//0.1346 - low power; //0.09146; - high power
+  ki = 0.8188;	//0.8188;			//0.6688 - low power; //0.2188 - high power
   kd = 0.000984;		//0.001904 - low power; //0.000984 - high power
 
   //MOTOR SETUP
@@ -63,6 +69,8 @@ void balancing()
   const float degtorad = PI/180;
 
   float GyY_prev = 0;
+  float AcZ_prev = 0;
+	float AcX_prev = 0;
 
   //SETUP VARIABLES FOR CALCULATIONS
   float th = 0,//Theta            // Angle of robot (degree)
@@ -90,26 +98,37 @@ void balancing()
 
   ClearTimer(T4);                 // This timer is used in the driver. Do not use it for other purposes!
 
+  kalman_init(kalman_GyY);
+
   while(true)
   {
 
     //READ GYRO SENSOR
   	getMotion(AcX, AcY, AcZ, GyX, GyY, GyZ);
 
-  	//
+  	//READ BLUETOOTH COMMAND
   	readRawBluetoothData();
 
+  	//low pass filter
+  	/*float alpha = 0.59;
+  	GyY = GyY_prev + alpha*(GyY - GyY_prev);
+
+  	AcZ = AcZ_prev + alpha*(AcZ - AcZ_prev);
+  	AcX = AcX_prev + alpha*(AcX - AcX_prev);
+  	AcZ_prev = AcZ;
+  	AcX_prev = AcX;*/
+
 		//COMPUTE GYRO ANGULAR VELOCITY AND ESTIMATE ANGLE
+  	AcZ += 0.40; //offset
+  	float th_accel = atan(AcZ/AcX) * 180.0 / PI;
   	th += 90.0*(GyY + GyY_prev)/25000.0;
     GyY_prev = GyY;
+		//th = getAngle(kalman_GyY, th_accel, GyY, dt); kalman filter
 
-    //Complementary filter
-    /*if(abs(AcZ) == 0)
-    {
-    	float th_accel = atan(AcZ/AcX) * 180.0 / PI;
-    	th = 0;//0.97*th + 0.03*th_accel;
-     	writeDebugStream("AcZ=%f AcX=%f th=%f th_accel=%f\n", AcZ, AcX, th, th_accel);
-  	}*/
+    //Complementary filter. module=70155
+    long acc_module = AcZ*AcZ + AcX*AcX;
+    if(acc_module > (g_module-delta) && acc_module < g_module+delta)
+    	th = 0.99*th + 0.01*th_accel;
 
     dth_dt = GyY;//(th - th_prev) / dt;
     th_prev = th;

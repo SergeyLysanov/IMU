@@ -144,7 +144,7 @@ bool i2c_write_bits(ubyte address, byte bit_start, byte length, byte data)
 }
 
 int GyY_offset = -65;  //-68 -:back +forward
-int AcZ_offset = 885; //810
+int AcZ_offset = 985; //810 //
 void getMotion(float& AcX, float& AcY, float& AcZ, float& GyX, float& GyY, float& GyZ)
 {
 		i2c_read_registers(0x3B - 2, 0, 14);
@@ -181,11 +181,17 @@ void setSleepEnabled(bool enabled)
      i2c_write_bits(MPU6050_RA_PWR_MGMT_1, MPU6050_PWR1_SLEEP_BIT, 1, enabled);
 }
 
+void setDLPFMode(ubyte bandwidth)
+{
+		i2c_write_bits(MPU6050_RA_CONFIG, MPU6050_CFG_DLPF_CFG_BIT, MPU6050_CFG_DLPF_CFG_LENGTH, bandwidth);
+}
+
 void configMPU()
 {
 		setClockSource(MPU6050_CLOCK_PLL_XGYRO);
     setFullScaleGyroRange(MPU6050_GYRO_FS_250);
     setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
+    setDLPFMode(MPU6050_DLPF_BW_256);
 }
 
 //test
