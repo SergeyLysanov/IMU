@@ -39,10 +39,10 @@ void balancing()
   // Customize PID constants. These variables are global, so you can optionally dynamically change them in your main task.
   gn_dth_dt = 0.23;	//0.20 - low power; //0.28 - high power
   gn_th = 15.00; //25
-  gn_y = 102.8;
-  gn_dy_dt = 34.6; //24.6
-  kp = 0.10946; 		//0.1346 - low power; //0.09146; - high power
-  ki = 0.8188;	//0.8188;			//0.6688 - low power; //0.2188 - high power
+  gn_y = 172.8;
+  gn_dy_dt = 24.6; //24.6
+  kp = 0.109146; 		//0.1346 - low power; //0.09146; - high power
+  ki = 0.6188;	//0.8188;			//0.6688 - low power; //0.2188 - high power
   kd = 0.000984;		//0.001904 - low power; //0.000984 - high power
 
   //MOTOR SETUP
@@ -74,6 +74,8 @@ void balancing()
 
   //SETUP VARIABLES FOR CALCULATIONS
   float th = 0,//Theta            // Angle of robot (degree)
+  			th_kalman = 0,
+  			th_complementary = 0,
   			th_prev = 0,
         dth_dt = 0;//dTheta/dt    // Angular velocity of robot (degree/sec)
   float e = 0,//Error             // Sum of four states to be kept zero: th, dth_dt, y, dy_dt.
@@ -122,17 +124,21 @@ void balancing()
   	AcZ += 0.40; //offset
   	float th_accel = atan(AcZ/AcX) * 180.0 / PI;
   	th += 90.0*(GyY + GyY_prev)/25000.0;
-    GyY_prev = GyY;
-		//th = getAngle(kalman_GyY, th_accel, GyY, dt); kalman filter
+
+    //th_kalman = getAngle(kalman_GyY, th_accel, GyY, dt); //kalman filter
 
     //Complementary filter. module=70155
+    /*th_complementary += 90.0*(GyY + GyY_prev)/25000.0;
     long acc_module = AcZ*AcZ + AcX*AcX;
     if(acc_module > (g_module-delta) && acc_module < g_module+delta)
-    	th = 0.99*th + 0.01*th_accel;
+    	th_complementary = 0.99*th_complementary + 0.01*th_accel;*/
 
     dth_dt = GyY;//(th - th_prev) / dt;
     th_prev = th;
-    //writeDebugStream("th=%f dth_dt=%f\n ", th, dth_dt);
+    GyY_prev = GyY;
+
+    //compare filters
+    //writeDebugStream("%f; %f; %f; %f\n", nSysTime, th, th_kalman, th_complementary);
 
     //ADJUST REFERENCE POSITION ON SPEED AND ACCELERATION
     if(v < speed*2){
@@ -163,7 +169,7 @@ void balancing()
   	pid = (kp*e + ki*_edt + kd*de_dt)/radius*gear_down_ratio;
 
   	//time; gn_th*th; gn_dth_dt*dth_dt; gn_y*y; gn_dy_dt*dy_dt; kp*e; ki*_edt; kd*de_dt; pid;
-  	writeDebugStreamLine("%d; %f; %f; %f; %f; %f; %f; %f; %f", nSysTime, gn_th*th, gn_dth_dt*dth_dt, gn_y*y, gn_dy_dt*dy_dt, kp*e, ki*_edt, kd*de_dt, pid);
+  	//writeDebugStreamLine("%d; %f; %f; %f; %f; %f; %f; %f; %f", nSysTime, gn_th*th, gn_dth_dt*dth_dt, gn_y*y, gn_dy_dt*dy_dt, kp*e, ki*_edt, kd*de_dt, pid);
 
   	//ADJUST MOTOR SPEED TO STEERING AND SYNCHING
     if(steering == 0){
